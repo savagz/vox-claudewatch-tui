@@ -1,0 +1,15 @@
+# Copiá este archivo a config/voxclaudewatch.toml (sólo lo leen los builds de
+# desarrollo, `cargo run`) o a ~/.config/voxclaudewatch-tui/config.toml, o dejá que la TUI
+# escriba el suyo en el directorio de config del usuario al guardar desde el
+# overlay de configuración (`c`).
+
+[server]
+host = "0.0.0.0"     # interfaz donde escucha el servidor de eventos
+port = 8765          # mismo puerto que CLAUDE_WATCH_URL en el mod activity-beacon
+token = ""           # vacío: se usa ~/.config/claude-watch/token si existe
+
+[ui]
+tick_rate_ms = 180   # también es el ritmo de la animación de la mascota
+language = "es"      # "es" o "en", también editable desde el overlay (`c`)
+mascot = "pixo"      # "pixo", "byte" o "michi"; también con `m` o desde el overlay
+sound = true         # jingles en los cambios de estado importantes; también con `v`

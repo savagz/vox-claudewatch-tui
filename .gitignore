@@ -1,0 +1,27 @@
+# Rust
+/target
+**/*.rs.bk
+
+# Configuracion local (se versiona solo el ejemplo)
+/config/voxclaudewatch.toml
+
+# Logs
+*.log
+voxclaudewatch-tui.log*
+
+# Variables de entorno
+.env
+.env.*
+
+# Editores e IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/settings.local.json

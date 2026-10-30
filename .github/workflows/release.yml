@@ -1,0 +1,80 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+# Por defecto sólo lectura: el permiso de escritura lo tiene únicamente el job
+# que publica, no el que compila y corre los tests.
+permissions:
+  contents: read
+
+env:
+  TARGET: x86_64-unknown-linux-musl
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+          rustup toolchain install stable --profile minimal --target "$TARGET"
+          rustup default stable
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build
+        run: cargo build --release --locked --target "$TARGET"
+
+      - name: Check binary is static
+        run: |
+          file "target/$TARGET/release/voxclaudewatch-tui"
+          if ldd "target/$TARGET/release/voxclaudewatch-tui" 2>&1 | grep -q "=>"; then
+            echo "El binario tiene dependencias dinamicas" >&2
+            exit 1
+          fi
+
+      - name: Package
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          name="voxclaudewatch-tui-${tag}-x86_64-linux"
+          mkdir -p "dist/${name}"
+          cp "target/$TARGET/release/voxclaudewatch-tui" README.md config/voxclaudewatch.example.toml "dist/${name}/"
+          tar -C dist -czf "dist/${name}.tar.gz" "${name}"
+          (cd dist && sha256sum "${name}.tar.gz" > "${name}.tar.gz.sha256")
+          ls -l dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: voxclaudewatch-tui
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: voxclaudewatch-tui
+          path: dist
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/*.tar.gz dist/*.sha256 \
+            --title "${GITHUB_REF_NAME}" --generate-notes
