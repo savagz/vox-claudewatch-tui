@@ -7,7 +7,7 @@ Es el port a Rust de `claude-watch` con el lenguaje visual de la familia VOXPBX:
 ## Características
 
 - Servidor HTTP propio (sin dependencias extra) compatible con el mod `activity-beacon`: `POST /events`, `GET /health` y `GET /debug`, con token en la cabecera `x-token`.
-- Tres mascotas pixel art animadas: **Pixo** (blob coral), **Byte** (robot) y **Michi** (gato). Cada una actúa los 20 estados de Claude (pensando, leyendo, editando, ejecutando, delegando, preguntándote, plan listo, terminado, error, durmiendo...). Se cambian con `m` o desde la configuración.
+- Seis mascotas pixel art animadas: **Pixo** (blob coral), **Byte** (robot), **Michi** (gato), **Axo** (ajolote), **Nopal** (cactus) y **Bruma** (fantasma). Cada una actúa los 20 estados de Claude (pensando, leyendo, editando, ejecutando, delegando, preguntándote, plan listo, terminado, error, durmiendo...). Se cambian con `m` o desde la configuración.
 - Sonidos de 8 bits distintos para los cambios de estado importantes: sesión iniciada o terminada, prompt nuevo, pregunta, plan listo, subagente, turno terminado y error. Se sintetizan al arrancar (no hay archivos de audio) y se reproducen con `pw-play`, `paplay`, `aplay` o `afplay`, lo que haya. Se silencian con `v`.
 - Varias sesiones a la vez: sigue automáticamente a la más reciente o fijás una a mano.
 - Límites de 5 h y 7 días, ocupación del contexto, coste por sesión, por turno y del día (por proyecto).
@@ -235,7 +235,7 @@ src/
   app.rs         Estado de la aplicación y manejo de teclas
   beacon/        Dominio: sesiones y eventos (mod.rs), medidas, estadísticas,
                  servidor HTTP y demo
-  mascot.rs      Pixo, Byte y Michi en pixel art de medios bloques
+  mascot.rs      Las seis mascotas en pixel art de medios bloques
   sound.rs       Síntesis y reproducción de los sonidos
   config.rs      Carga, guardado y overlay de configuración
   deps.rs        Chequeos de la verificación del sistema

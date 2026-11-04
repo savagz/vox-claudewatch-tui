@@ -428,11 +428,12 @@ mod tests {
         assert_eq!(form.display_value_of(ConfigField::Mascot), "Byte · robot");
         form.on_key(key(KeyCode::Left));
         form.on_key(key(KeyCode::Left));
-        assert_eq!(form.mascot, Mascot::Michi);
+        assert_eq!(form.mascot, Mascot::Bruma);
+        assert_eq!(form.display_value_of(ConfigField::Mascot), "Bruma · fantasma");
         form.language = Lang::En;
-        assert_eq!(form.display_value_of(ConfigField::Mascot), "Michi · cat");
+        assert_eq!(form.display_value_of(ConfigField::Mascot), "Bruma · ghost");
         match form.on_key(key(KeyCode::Enter)) {
-            ConfigOutcome::Save(c) => assert_eq!(c.ui.mascot, Mascot::Michi),
+            ConfigOutcome::Save(c) => assert_eq!(c.ui.mascot, Mascot::Bruma),
             other => panic!("se esperaba Save, llegó {other:?}"),
         }
     }

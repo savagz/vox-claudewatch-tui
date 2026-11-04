@@ -1,5 +1,6 @@
-//! Mascotas pixel art del tablero: Pixo (blob coral), Byte (robot) y Michi
-//! (gato). Comparten cara y accesorios por estado; cambia el cuerpo y la paleta.
+//! Mascotas pixel art del tablero: Pixo (blob coral), Byte (robot), Michi (gato),
+//! Axo (ajolote), Nopal (cactus) y Bruma (fantasma). Comparten cara y accesorios
+//! por estado; cambia el cuerpo y la paleta.
 //!
 //! Se dibuja en una rejilla de `W` x `H` píxeles y se pinta con medios bloques
 //! (cada celda son dos píxeles verticales), así que ocupa `W` columnas y
@@ -25,16 +26,22 @@ pub enum Mascot {
     Pixo,
     Byte,
     Michi,
+    Axo,
+    Nopal,
+    Bruma,
 }
 
 impl Mascot {
-    pub const ALL: [Mascot; 3] = [Mascot::Pixo, Mascot::Byte, Mascot::Michi];
+    pub const ALL: [Mascot; 6] = [Mascot::Pixo, Mascot::Byte, Mascot::Michi, Mascot::Axo, Mascot::Nopal, Mascot::Bruma];
 
     pub fn name(self) -> &'static str {
         match self {
             Mascot::Pixo => "Pixo",
             Mascot::Byte => "Byte",
             Mascot::Michi => "Michi",
+            Mascot::Axo => "Axo",
+            Mascot::Nopal => "Nopal",
+            Mascot::Bruma => "Bruma",
         }
     }
 
@@ -47,6 +54,12 @@ impl Mascot {
             (Mascot::Byte, Lang::En) => "Byte · robot",
             (Mascot::Michi, Lang::Es) => "Michi · gato",
             (Mascot::Michi, Lang::En) => "Michi · cat",
+            (Mascot::Axo, Lang::Es) => "Axo · ajolote",
+            (Mascot::Axo, Lang::En) => "Axo · axolotl",
+            (Mascot::Nopal, Lang::Es) => "Nopal · cactus",
+            (Mascot::Nopal, Lang::En) => "Nopal · cactus",
+            (Mascot::Bruma, Lang::Es) => "Bruma · fantasma",
+            (Mascot::Bruma, Lang::En) => "Bruma · ghost",
         }
     }
 
@@ -96,22 +109,32 @@ impl Ink {
                 Mascot::Pixo => rgb(0xe8, 0x87, 0x5f),
                 Mascot::Byte => rgb(0x7d, 0xa6, 0xc9),
                 Mascot::Michi => rgb(0xb8, 0xa4, 0xe3),
+                Mascot::Axo => rgb(0xf4, 0xa6, 0xc4),
+                Mascot::Nopal => rgb(0x6f, 0xb5, 0x5e),
+                Mascot::Bruma => rgb(0x9a, 0xe0, 0xd4),
             },
             (Ink::Belly, false) => match mascot {
                 Mascot::Pixo => rgb(0xf6, 0xc2, 0x9a),
                 Mascot::Byte => rgb(0xc9, 0xdc, 0xea),
                 Mascot::Michi => rgb(0xe6, 0xdc, 0xf7),
+                Mascot::Axo => rgb(0xfb, 0xdc, 0xe6),
+                Mascot::Nopal => rgb(0xb5, 0xdc, 0x9a),
+                Mascot::Bruma => rgb(0xe2, 0xf8, 0xf3),
             },
             (Ink::Line, false) => match mascot {
                 Mascot::Pixo => rgb(0x3b, 0x22, 0x19),
                 Mascot::Byte => rgb(0x1f, 0x2a, 0x38),
                 Mascot::Michi => rgb(0x2e, 0x22, 0x40),
+                Mascot::Axo => rgb(0x4a, 0x1f, 0x35),
+                Mascot::Nopal => rgb(0x1e, 0x3a, 0x1f),
+                Mascot::Bruma => rgb(0x1c, 0x3d, 0x3f),
             },
             (Ink::White, false) => rgb(0xfd, 0xf6, 0xec),
             (Ink::Pupil, false) => rgb(0x1d, 0x1d, 0x2b),
             (Ink::Cheek, false) => match mascot {
                 Mascot::Byte => rgb(0xff, 0x9f, 0x43),
-                Mascot::Pixo | Mascot::Michi => rgb(0xf0, 0x71, 0x8a),
+                Mascot::Pixo | Mascot::Michi | Mascot::Axo | Mascot::Bruma => rgb(0xf0, 0x71, 0x8a),
+                Mascot::Nopal => rgb(0xe8, 0x5d, 0x75),
             },
             (Ink::Body, true) => rgb(0x7b, 0x7b, 0x86),
             (Ink::Belly, true) => rgb(0xa3, 0xa3, 0xad),
@@ -225,7 +248,7 @@ fn cycle<T: Copy>(seq: &[T], f: u64) -> T {
     seq[(f % seq.len() as u64) as usize]
 }
 
-/// Luz de estado (bombilla de la antena, o punta de la cola de Michi).
+/// Luz de estado: antena, cola de Michi, branquias de Axo, tuna de Nopal o fuego de Bruma.
 fn bulb(state: State, f: u64) -> Ink {
     use State::*;
     match state {
@@ -347,6 +370,91 @@ fn body_michi(c: &mut Canvas, state: State, f: u64, cx: i32, cy: i32) {
     }
 }
 
+/// Axo: ajolote rosa con branquias que se encienden con la luz de estado y cola.
+fn body_axo(c: &mut Canvas, state: State, f: u64, cx: i32, cy: i32) {
+    let sway = sway(state, f);
+
+    // Cola por detrás del cuerpo, meneándose.
+    let wag = if matches!(state, State::Sleeping | State::Offline) { 0 } else { cycle(&[0, 1, 0, -1], f) };
+    for off in 0..2 {
+        c.line(cx + 7, cy + 4 + off, cx + 13, cy + 6 + wag + off, Ink::Body);
+    }
+
+    // Tres branquias por lado; la de arriba lleva la luz en la punta.
+    for side in [-1, 1] {
+        let (rx, ry) = (cx + side * 9, cy - 2);
+        c.line(rx, ry, cx + side * 14, cy - 7 - sway, Ink::Cheek);
+        c.line(rx, ry + 1, cx + side * 15, cy - 3 - sway, Ink::Cheek);
+        c.line(rx, ry + 2, cx + side * 14, cy + 1 + sway, Ink::Cheek);
+        c.rect(cx + side * 14 - 1, cy - 9 - sway, 2, 2, bulb(state, f));
+    }
+
+    if state == State::Running {
+        let lift = (f % 2) as i32;
+        c.rect(cx - 6, cy + 7 - lift, 4, 2, Ink::Belly);
+        c.rect(cx + 3, cy + 6 + lift, 4, 2, Ink::Belly);
+    } else if feet_down(state, f) {
+        c.rect(cx - 6, cy + 7, 4, 2, Ink::Belly);
+        c.rect(cx + 3, cy + 7, 4, 2, Ink::Belly);
+    }
+
+    c.ellipse(cx as f64, cy as f64, 10.4, 7.6, Ink::Body, Some(Ink::Line), None);
+    c.ellipse(cx as f64, (cy + 3) as f64, 6.0, 4.0, Ink::Belly, None, Some(Ink::Body));
+}
+
+/// Nopal: penca en maceta con dos pencas chicas, espinas y una tuna como luz de estado.
+fn body_nopal(c: &mut Canvas, state: State, f: u64, cx: i32, cy: i32) {
+    // Las pencas chicas saludan mientras está despierto.
+    let sway = sway(state, f);
+    c.ellipse((cx - 12) as f64, (cy - 3 - sway) as f64, 3.4, 4.4, Ink::Body, Some(Ink::Line), None);
+    c.ellipse((cx + 12) as f64, (cy - 5 + sway) as f64, 3.4, 4.4, Ink::Body, Some(Ink::Line), None);
+
+    // Tuna en lo alto.
+    c.rect(cx - 2 + sway, cy - 13, 4, 3, bulb(state, f));
+
+    c.ellipse(cx as f64, (cy - 1) as f64, 10.0, 9.0, Ink::Body, Some(Ink::Line), None);
+    c.ellipse(cx as f64, (cy + 3) as f64, 6.0, 3.6, Ink::Belly, None, Some(Ink::Body));
+
+    // Espinas, alrededor de la cara.
+    for (x, y) in [(-4, -7), (3, -7), (-8, -3), (8, -4), (-1, -8), (-8, 3), (8, 3), (-13, -5), (-11, -1), (12, -7), (13, -3)] {
+        c.set(cx + x, cy + y, Ink::White);
+    }
+
+    // Maceta.
+    c.rect(cx - 8, cy + 6, 17, 2, Ink::Wood);
+    c.rect(cx - 8, cy + 8, 17, 1, Ink::Dark);
+    c.rect(cx - 6, cy + 9, 13, 1, Ink::Wood);
+}
+
+/// Bruma: fantasma menta que flota, con el borde ondulante y un fuego fatuo como luz de estado.
+fn body_bruma(c: &mut Canvas, state: State, f: u64, cx: i32, cy: i32) {
+    // El fuego fatuo flota a su lado; debajo, los dos bracitos.
+    let still = matches!(state, State::Sleeping | State::Offline);
+    let bob = if still { 0 } else { cycle(&[0, -1, -2, -1], f) };
+    c.rect(cx - 15, cy - 5 + bob, 3, 4, bulb(state, f));
+    c.rect(cx - 12, cy + 1, 3, 2, Ink::Body);
+    c.rect(cx + 10, cy + 1, 3, 2, Ink::Body);
+
+    // Cabeza y faldón. El borde inferior ondula, más rápido si corre.
+    c.ellipse(cx as f64, (cy - 1) as f64, 10.4, 9.0, Ink::Body, Some(Ink::Line), None);
+    let phase = match state {
+        State::Sleeping | State::Offline => 0,
+        State::Running => f as i32,
+        _ => (f / 2) as i32,
+    };
+    for x in -10..=10 {
+        let hem = cy + 6 + cycle(&[0, 1, 2, 2, 1, 0], (x + 10 + phase) as u64);
+        let edge = x.abs() == 10;
+        for y in (cy - 1)..=hem {
+            c.set(cx + x, y, if edge || y == hem { Ink::Line } else { Ink::Body });
+        }
+    }
+
+    // Brillo en la cabeza.
+    c.rect(cx - 6, cy - 7, 3, 1, Ink::Belly);
+    c.rect(cx - 7, cy - 6, 1, 2, Ink::Belly);
+}
+
 /// Cuerpo de la mascota elegida más la cara común: ojos, mejillas y boca.
 fn creature(c: &mut Canvas, mascot: Mascot, state: State, f: u64, dy: i32, dx: i32) {
     use State::*;
@@ -356,6 +464,9 @@ fn creature(c: &mut Canvas, mascot: Mascot, state: State, f: u64, dy: i32, dx: i
         Mascot::Pixo => body_pixo(c, state, f, cx, cy),
         Mascot::Byte => body_byte(c, state, f, cx, cy),
         Mascot::Michi => body_michi(c, state, f, cx, cy),
+        Mascot::Axo => body_axo(c, state, f, cx, cy),
+        Mascot::Nopal => body_nopal(c, state, f, cx, cy),
+        Mascot::Bruma => body_bruma(c, state, f, cx, cy),
     }
 
     // Ojos
@@ -612,14 +723,16 @@ mod tests {
 
     #[test]
     fn las_mascotas_se_distinguen() {
-        let pixo = render(Mascot::Pixo, State::Idle, 1, Color::Black);
-        assert_ne!(pixo, render(Mascot::Byte, State::Idle, 1, Color::Black));
-        assert_ne!(pixo, render(Mascot::Michi, State::Idle, 1, Color::Black));
+        for (i, a) in Mascot::ALL.iter().enumerate() {
+            for b in &Mascot::ALL[i + 1..] {
+                assert_ne!(render(*a, State::Idle, 1, Color::Black), render(*b, State::Idle, 1, Color::Black), "{a:?} {b:?}");
+            }
+        }
     }
 
     #[test]
     fn el_selector_da_la_vuelta() {
-        assert_eq!(Mascot::Michi.next(), Mascot::Pixo);
-        assert_eq!(Mascot::Pixo.prev(), Mascot::Michi);
+        assert_eq!(Mascot::Bruma.next(), Mascot::Pixo);
+        assert_eq!(Mascot::Pixo.prev(), Mascot::Bruma);
     }
 }

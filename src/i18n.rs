@@ -443,8 +443,8 @@ fn pair(key: Key) -> (&'static str, &'static str) {
         SoundOff => ("silenciado", "muted"),
         ConfigFieldMascotLabel => ("Mascota", "Mascot"),
         ConfigFieldMascotHint => (
-            "Quién actúa lo que hace Claude: Pixo, Byte o Michi (← → para elegir, M en el tablero).",
-            "Who acts out what Claude is doing: Pixo, Byte or Michi (← → to choose, M on the dashboard).",
+            "Quién actúa lo que hace Claude: Pixo, Byte, Michi, Axo, Nopal o Bruma (← → para elegir, M en el tablero).",
+            "Who acts out what Claude is doing: Pixo, Byte, Michi, Axo, Nopal or Bruma (← → to choose, M on the dashboard).",
         ),
         ConfigErrInvalidTemplate => ("Valor inválido en «{}».", "Invalid value in “{}”."),
         ConfigErrCreateDirTemplate => ("no se pudo crear {}", "could not create {}"),
