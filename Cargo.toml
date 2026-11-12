@@ -1,6 +1,6 @@
 [package]
 name = "voxclaudewatch-tui"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 # let-chains (edición 2024) y ratatui 0.30 piden 1.88.
 rust-version = "1.88"
