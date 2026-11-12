@@ -60,6 +60,7 @@ fn draw_body(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
         Tab::Stats => tabs::stats::render(frame, area, app),
         Tab::Activity => tabs::activity::render(frame, area, app),
         Tab::SystemCheck => tabs::syscheck::render(frame, area, app),
+        Tab::Office => tabs::office::render(frame, area, app),
     }
 }
 

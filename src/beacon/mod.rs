@@ -149,7 +149,43 @@ pub enum Note {
     TurnDone { secs: f64, aborted: bool },
 }
 
+/// Familias de entradas del registro, para filtrar la pestaña Actividad.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NoteKind {
+    Session,
+    Prompt,
+    Tool,
+    Error,
+    Agent,
+    Task,
+    Plan,
+}
+
+impl NoteKind {
+    pub const ALL: [NoteKind; 7] = [
+        NoteKind::Session,
+        NoteKind::Prompt,
+        NoteKind::Tool,
+        NoteKind::Error,
+        NoteKind::Agent,
+        NoteKind::Task,
+        NoteKind::Plan,
+    ];
+}
+
 impl Note {
+    pub fn kind(&self) -> NoteKind {
+        match self {
+            Note::SessionStarted { .. } | Note::SessionEnded { .. } => NoteKind::Session,
+            Note::Prompt(_) | Note::NewTurn | Note::TurnDone { .. } => NoteKind::Prompt,
+            Note::Tool { ok: true, .. } => NoteKind::Tool,
+            Note::Tool { ok: false, .. } => NoteKind::Error,
+            Note::AgentStarted { .. } | Note::AgentDone(_) => NoteKind::Agent,
+            Note::TaskDone(_) | Note::TaskStarted(_) => NoteKind::Task,
+            Note::Question(_) | Note::PlanMode | Note::PlanReady => NoteKind::Plan,
+        }
+    }
+
     pub fn icon(&self) -> &'static str {
         match self {
             Note::SessionStarted { .. } => "◆",
@@ -247,6 +283,14 @@ impl Cue {
     }
 }
 
+/// Un aviso con el contexto necesario para notificarlo.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Alert {
+    pub cue: Cue,
+    pub project: String,
+    pub detail: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct TimelineEntry {
     pub ts: f64,
@@ -262,8 +306,9 @@ pub struct Hub {
     pub last_event: Option<f64>,
     pub received: u64,
     raw: VecDeque<Value>,
-    /// Sonidos pendientes; los vacía el bucle principal con `take_cues`.
-    cues: Vec<Cue>,
+    /// Avisos pendientes (sonido y notificación); los vacía el bucle
+    /// principal con `take_cues`.
+    cues: Vec<Alert>,
 }
 
 fn text<'a>(ev: &'a Value, key: &str) -> &'a str {
@@ -309,8 +354,12 @@ impl Hub {
         }
     }
 
-    pub fn take_cues(&mut self) -> Vec<Cue> {
+    pub fn take_cues(&mut self) -> Vec<Alert> {
         std::mem::take(&mut self.cues)
+    }
+
+    fn alert(&mut self, cue: Cue, project: &str, detail: &str) {
+        self.cues.push(Alert { cue, project: project.to_string(), detail: detail.to_string() });
     }
 
     /// Sesiones no perdidas, la más reciente primero.
@@ -391,7 +440,7 @@ impl Hub {
             kind @ ("session_start" | "snapshot") => {
                 self.apply_snapshot(&sid, ev, kind == "session_start", now);
                 if kind == "session_start" {
-                    self.cues.push(Cue::SessionStart);
+                    self.alert(Cue::SessionStart, &project, "");
                     notes.push(Note::SessionStarted { model: self.sessions[&sid].model.clone() });
                 }
             }
@@ -400,7 +449,7 @@ impl Hub {
                 if let Some(s) = self.sessions.get_mut(&sid) {
                     s.ended = true;
                 }
-                self.cues.push(Cue::SessionEnd);
+                self.alert(Cue::SessionEnd, &project, "");
                 notes.push(Note::SessionEnded { reason: text(ev, "reason").to_string() });
             }
             "turn_start" => {
@@ -408,11 +457,11 @@ impl Hub {
                 s.turn_started = Some(now);
                 s.usd_turn_start = Some(s.usd.unwrap_or(0.0));
                 s.prompt = text(ev, "prompt").to_string();
-                self.cues.push(Cue::Prompt);
                 if !text(ev, "model").is_empty() {
                     s.model = text(ev, "model").to_string();
                 }
                 notes.push(if s.prompt.is_empty() { Note::NewTurn } else { Note::Prompt(clip(&s.prompt, 70)) });
+                self.alert(Cue::Prompt, &project, "");
             }
             "state" => {
                 let raw = text(ev, "state");
@@ -470,7 +519,7 @@ impl Hub {
                 s.agents.retain(|a| a.id != id);
                 s.agents.push(Agent { id, kind, description, started: now, tool: String::new(), finished: None });
                 self.stats.day.agents += 1;
-                self.cues.push(Cue::Delegating);
+                self.alert(Cue::Delegating, &project, "");
             }
             "agent_done" => {
                 let s = self.sessions.get_mut(&sid).expect("sesión recién insertada");
@@ -564,7 +613,7 @@ impl Hub {
         if state != s.state {
             s.state_since = now;
             if let Some(cue) = Cue::for_state(state) {
-                self.cues.push(cue);
+                self.cues.push(Alert { cue, project: s.project.clone(), detail: detail.to_string() });
             }
         }
         s.state = state;
@@ -727,8 +776,37 @@ mod tests {
         h.handle_at(&ev("state", json!({"state": "error"})), 3.0);
         h.handle_at(&ev("state", json!({"state": "error"})), 4.0);
         h.handle_at(&ev("state", json!({"state": "done"})), 5.0);
-        assert_eq!(h.take_cues(), vec![Cue::SessionStart, Cue::Error, Cue::Done]);
+        let cues: Vec<Cue> = h.take_cues().into_iter().map(|a| a.cue).collect();
+        assert_eq!(cues, vec![Cue::SessionStart, Cue::Error, Cue::Done]);
         assert!(h.take_cues().is_empty());
+    }
+
+    #[test]
+    fn los_avisos_llevan_proyecto_y_detalle() {
+        let mut h = hub();
+        h.handle_at(&ev("session_start", json!({"state": "idle"})), 1.0);
+        h.handle_at(&ev("state", json!({"state": "asking", "detail": "¿Seguimos?"})), 2.0);
+        let last = h.take_cues().pop().unwrap();
+        assert_eq!(last, Alert { cue: Cue::Asking, project: "demo-app".into(), detail: "¿Seguimos?".into() });
+    }
+
+    #[test]
+    fn familia_de_cada_nota() {
+        let tool = |ok| Note::Tool { agent: None, tool: "Bash".into(), detail: String::new(), ok };
+        assert_eq!(tool(true).kind(), NoteKind::Tool);
+        assert_eq!(tool(false).kind(), NoteKind::Error);
+        assert_eq!(Note::SessionStarted { model: String::new() }.kind(), NoteKind::Session);
+        assert_eq!(Note::SessionEnded { reason: String::new() }.kind(), NoteKind::Session);
+        assert_eq!(Note::Prompt(String::new()).kind(), NoteKind::Prompt);
+        assert_eq!(Note::NewTurn.kind(), NoteKind::Prompt);
+        assert_eq!(Note::TurnDone { secs: 1.0, aborted: false }.kind(), NoteKind::Prompt);
+        assert_eq!(Note::Question(String::new()).kind(), NoteKind::Plan);
+        assert_eq!(Note::PlanMode.kind(), NoteKind::Plan);
+        assert_eq!(Note::PlanReady.kind(), NoteKind::Plan);
+        assert_eq!(Note::TaskDone(String::new()).kind(), NoteKind::Task);
+        assert_eq!(Note::TaskStarted(String::new()).kind(), NoteKind::Task);
+        assert_eq!(Note::AgentStarted { kind: String::new(), description: String::new() }.kind(), NoteKind::Agent);
+        assert_eq!(Note::AgentDone(String::new()).kind(), NoteKind::Agent);
     }
 
     #[test]

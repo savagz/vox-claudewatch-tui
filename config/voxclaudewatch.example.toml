@@ -13,3 +13,4 @@ tick_rate_ms = 180   # también es el ritmo de la animación de la mascota
 language = "es"      # "es" o "en", también editable desde el overlay (`c`)
 mascot = "pixo"      # "pixo", "byte" o "michi"; también con `m` o desde el overlay
 sound = true         # jingles en los cambios de estado importantes; también con `v`
+notify = false       # notificaciones de escritorio al preguntar, plan listo, fin y error; también con `n`

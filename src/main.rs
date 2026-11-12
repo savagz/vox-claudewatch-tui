@@ -7,6 +7,8 @@ mod i18n;
 mod keys;
 mod logging;
 mod mascot;
+mod notify;
+mod office;
 mod setup;
 mod sound;
 mod theme;
@@ -26,6 +28,7 @@ use event::AppEvent;
 use futures_util::StreamExt;
 use i18n::Key;
 use setup::{SystemCheckMode, SystemCheckOutcome, SystemCheckState};
+use notify::Notifier;
 use sound::Player;
 use theme::{Status, Theme};
 use tokio::sync::{mpsc, watch};
@@ -141,6 +144,7 @@ async fn run(terminal: &mut ratatui::DefaultTerminal, demo: bool) -> Result<()> 
     let notice = if notice.is_some() { notice } else { ensure_token(&mut config) };
 
     let player = Player::detect();
+    let notifier = Notifier::detect();
     let stats_path = stats_path();
     let addr = server::address(&config);
     let mut listener = server::bind(&addr);
@@ -153,6 +157,8 @@ async fn run(terminal: &mut ratatui::DefaultTerminal, demo: bool) -> Result<()> 
         demo,
         player: player.name(),
         sound_on: config.ui.sound,
+        notifier: notifier.name(),
+        notify_on: config.ui.notify,
     };
 
     // El wizard sólo aparece si hay algo en rojo: en la práctica, que el
@@ -191,6 +197,7 @@ async fn run(terminal: &mut ratatui::DefaultTerminal, demo: bool) -> Result<()> 
         listener: listener.ok(),
         stats: Stats::new(stats_path),
         player,
+        notifier,
         demo,
         system_check,
     };
@@ -208,6 +215,7 @@ struct Startup {
     listener: Option<std::net::TcpListener>,
     stats: Stats,
     player: Player,
+    notifier: Notifier,
     demo: bool,
     system_check: SystemCheckState,
 }
@@ -218,7 +226,7 @@ async fn run_app(
     tx: mpsc::Sender<AppEvent>,
     mut rx: mpsc::Receiver<AppEvent>,
 ) -> Result<()> {
-    let Startup { config, notice, listener, stats, mut player, demo, system_check } = startup;
+    let Startup { config, notice, listener, stats, mut player, mut notifier, demo, system_check } = startup;
     let tick_rate = Duration::from_millis(config.ui.tick_rate_ms.max(50));
     let (config_tx, config_rx) = watch::channel(config.clone());
 
@@ -231,6 +239,7 @@ async fn run_app(
 
     let mut app = App::new(config, Reload { config: config_tx }, stats, initial_status, system_check);
     app.player = player.name();
+    app.notifier = notifier.name();
     app.demo = demo;
     app.system_check.recheck(app.probe());
     app.toast = notice;
@@ -246,12 +255,14 @@ async fn run_app(
             if let Some(PendingAction::StartDemo) = app.take_pending() {
                 beacon::demo::spawn(tx.clone());
             }
-            // De una ráfaga suena sólo el aviso más importante.
-            let cue = app.hub.take_cues().into_iter().max_by_key(|c| c.priority());
-            if let Some(cue) = cue
-                && app.config.ui.sound
-            {
-                player.play(cue);
+            // De una ráfaga suena y se notifica sólo el aviso más importante.
+            if let Some(alert) = app.hub.take_cues().into_iter().max_by_key(|a| a.cue.priority()) {
+                if app.config.ui.sound {
+                    player.play(alert.cue);
+                }
+                if app.config.ui.notify {
+                    notifier.notify(app.lang, &alert);
+                }
             }
 
             if app.should_quit {

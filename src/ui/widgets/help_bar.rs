@@ -52,7 +52,7 @@ fn build_spans(app: &App) -> Vec<Span<'static>> {
     let mut spans = vec![
         key(theme, "TAB", theme.accent_secondary),
         label(theme, i18n::t(lang, Key::HbView)),
-        key(theme, "1-5", theme.accent_secondary),
+        key(theme, "1-6", theme.accent_secondary),
         label(theme, i18n::t(lang, Key::HbJump)),
     ];
 
@@ -76,12 +76,28 @@ fn build_spans(app: &App) -> Vec<Span<'static>> {
         Tab::Activity => vec![
             key(theme, "↑↓", theme.accent_secondary),
             label(theme, i18n::t(lang, Key::HelpScroll)),
+            key(theme, "/", theme.coral),
+            label(theme, i18n::t(lang, Key::HbSearch)),
+            key(theme, "F", theme.violet),
+            label(theme, i18n::t(lang, Key::HbFilter)),
+            key(theme, "P", theme.violet),
+            label(theme, i18n::t(lang, Key::HbProject)),
+            key(theme, "␣", theme.accent_quaternary),
+            label(theme, i18n::t(lang, Key::HbPause)),
+            key(theme, "Esc", theme.accent_secondary),
+            label(theme, i18n::t(lang, Key::HbClear)),
         ],
         Tab::SystemCheck => vec![
             key(theme, "↑↓", theme.accent_secondary),
             label(theme, i18n::t(lang, Key::HbNavigate)),
             key(theme, "R", theme.accent_secondary),
             label(theme, i18n::t(lang, Key::HbRecheck)),
+        ],
+        Tab::Office => vec![
+            key(theme, "S", theme.accent_secondary),
+            label(theme, i18n::t(lang, Key::HbNextSession)),
+            key(theme, "A", theme.ok),
+            label(theme, i18n::t(lang, Key::HbAuto)),
         ],
         Tab::Stats => vec![
             key(theme, "S", theme.accent_secondary),
@@ -93,6 +109,8 @@ fn build_spans(app: &App) -> Vec<Span<'static>> {
     spans.push(label(theme, i18n::t(lang, Key::HbMascot)));
     spans.push(key(theme, "V", theme.accent_quaternary));
     spans.push(label(theme, i18n::t(lang, Key::HbSound)));
+    spans.push(key(theme, "N", theme.info));
+    spans.push(label(theme, i18n::t(lang, Key::HbNotify)));
     spans.push(key(theme, "C", theme.accent_primary));
     spans.push(label(theme, i18n::t(lang, Key::HbConfig)));
     spans.push(key(theme, "H", theme.accent_secondary));

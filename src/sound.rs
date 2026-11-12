@@ -119,7 +119,7 @@ fn wav(samples: &[i16]) -> Vec<u8> {
     b
 }
 
-fn in_path(program: &str) -> bool {
+pub(crate) fn in_path(program: &str) -> bool {
     std::env::var_os("PATH")
         .map(|paths| std::env::split_paths(&paths).any(|dir| dir.join(program).is_file()))
         .unwrap_or(false)

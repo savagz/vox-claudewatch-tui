@@ -1,5 +1,6 @@
 pub mod activity;
 pub mod now;
+pub mod office;
 pub mod sessions;
 pub mod stats;
 pub mod syscheck;
@@ -14,15 +15,17 @@ pub enum Tab {
     Stats,
     Activity,
     SystemCheck,
+    Office,
 }
 
 impl Tab {
-    pub const ALL: [Tab; 5] = [
+    pub const ALL: [Tab; 6] = [
         Tab::Now,
         Tab::Sessions,
         Tab::Stats,
         Tab::Activity,
         Tab::SystemCheck,
+        Tab::Office,
     ];
 
     pub fn title(&self, lang: Lang) -> &'static str {
@@ -32,6 +35,7 @@ impl Tab {
             Tab::Stats => Key::TabStats,
             Tab::Activity => Key::TabActivity,
             Tab::SystemCheck => Key::TabSystemCheck,
+            Tab::Office => Key::TabOffice,
         };
         i18n::t(lang, key)
     }

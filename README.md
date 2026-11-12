@@ -9,11 +9,13 @@ Es el port a Rust de `claude-watch` con el lenguaje visual de la familia VOXPBX:
 - Servidor HTTP propio (sin dependencias extra) compatible con el mod `activity-beacon`: `POST /events`, `GET /health` y `GET /debug`, con token en la cabecera `x-token`.
 - Seis mascotas pixel art animadas: **Pixo** (blob coral), **Byte** (robot), **Michi** (gato), **Axo** (ajolote), **Nopal** (cactus) y **Bruma** (fantasma). Cada una actúa los 20 estados de Claude (pensando, leyendo, editando, ejecutando, delegando, preguntándote, plan listo, terminado, error, durmiendo...). Se cambian con `m` o desde la configuración.
 - Sonidos de 8 bits distintos para los cambios de estado importantes: sesión iniciada o terminada, prompt nuevo, pregunta, plan listo, subagente, turno terminado y error. Se sintetizan al arrancar (no hay archivos de audio) y se reproducen con `pw-play`, `paplay`, `aplay` o `afplay`, lo que haya. Se silencian con `v`.
+- Notificaciones de escritorio (opcionales, `n`) cuando Claude te pregunta, hay un plan listo, termina el turno o falla. Usan `osascript` en macOS y `notify-send` en Linux.
+- Sala de máquinas con el estilo industrial del tablero: empieza vacía y cada subagente aparece como una tarjeta con su computadora (monitor CRT y torre con LEDs) cuya pantalla muestra lo que hace, y abajo su estado, herramienta, descripción y tiempo. Al terminar, el CRT se apaga y queda una ✔. Debajo, un marcador con los totales: proyecto, subagentes, tareas, coste y tiempo del turno.
 - Varias sesiones a la vez: sigue automáticamente a la más reciente o fijás una a mano.
 - Límites de 5 h y 7 días, ocupación del contexto, coste por sesión, por turno y del día (por proyecto).
 - Estadísticas del día persistidas en disco: turnos, tiempo activo y esperándote, tokens y caché, archivos leídos y editados, errores, herramientas más usadas y actividad por minuto.
-- Registro de actividad completo y desplazable.
-- Verificación del sistema: puerto, token, estadísticas, URL para el mod, reproductor de sonido.
+- Registro de actividad completo y desplazable, con búsqueda, filtros por tipo y proyecto, y pausa.
+- Verificación del sistema: puerto, token, estadísticas, URL para el mod, reproductor de sonido, notificador.
 - Interfaz en español e inglés, conmutable en caliente.
 - Modo demo con una sesión simulada que recorre todos los estados.
 
@@ -168,8 +170,9 @@ Tras reiniciar, `/claude-watch on` y `/claude-watch status`.
 | `1`   | Ahora          | Mascota, estado, límites, tareas, subagentes, actividad reciente |
 | `2`   | Sesiones       | Sesiones vivas y detalle de la seleccionada                   |
 | `3`   | Estadísticas   | Límites, coste, contadores del día, herramientas, actividad   |
-| `4`   | Actividad      | Registro completo                                             |
-| `5`   | Verificación   | Servidor, token, estadísticas, mod, sonido, demo              |
+| `4`   | Actividad      | Registro completo, con búsqueda y filtros                     |
+| `5`   | Verificación   | Servidor, token, estadísticas, mod, sonido, avisos, demo      |
+| `6`   | Oficina        | Una tarjeta con su computadora por subagente y totales        |
 
 `Tab` y `Shift+Tab` recorren las pestañas.
 
@@ -183,12 +186,18 @@ Tras reiniciar, `/claude-watch on` y `/claude-watch status`.
 | `d`                   | Arrancar la demo                                |
 | `m`                   | Cambiar de mascota                              |
 | `v`                   | Activar o silenciar los sonidos                 |
+| `n`                   | Activar o desactivar las notificaciones         |
 | `c`, `F1`             | Configuración                                   |
 | `h`                   | Ayuda                                           |
 | `j`/`k`, flechas      | Navegar / desplazar                             |
 | `g`/`G`, `Home`/`End` | Ir al inicio / fin                              |
 | `Enter`               | Fijar la sesión seleccionada (Sesiones)         |
 | `r`                   | Re-verificar (Verificación)                     |
+| `/`                   | Buscar texto (Actividad)                        |
+| `f`                   | Siguiente tipo de entrada (Actividad)           |
+| `p`                   | Siguiente proyecto (Actividad)                  |
+| `Espacio`             | Pausar o reanudar el registro (Actividad)       |
+| `Esc`                 | Limpiar los filtros (Actividad)                 |
 
 ## Sonidos
 
@@ -205,9 +214,13 @@ Tras reiniciar, `/claude-watch on` y `/claude-watch status`.
 
 Un mismo sonido no se repite antes de 1,2 s, para que una ráfaga de eventos no sature. Los WAV se escriben en el directorio de caché del usuario (`~/.cache/voxclaudewatch-tui/sounds/` en Linux).
 
+## Notificaciones
+
+Desactivadas por defecto; se activan con `n` o desde la configuración (`notify = true` en `[ui]`). Sólo avisan de lo que te espera o cierra un turno: pregunta, plan listo, turno terminado y error. El título lleva el proyecto y el cuerpo el detalle (la pregunta o el error). Un mismo aviso no se repite antes de 5 s. En Linux hace falta `notify-send` (paquete `libnotify`); la pestaña Verificación muestra si se encontró.
+
 ## Configuración
 
-Funciona sin archivo de configuración. Los ajustes (host, puerto, token, idioma, mascota y sonido) se editan desde el overlay que abre `c` y se aplican al instante; cambiar host o puerto re-abre el servidor sin reiniciar. El archivo se busca en:
+Funciona sin archivo de configuración. Los ajustes (host, puerto, token, idioma, mascota, sonido y notificaciones) se editan desde el overlay que abre `c` y se aplican al instante; cambiar host o puerto re-abre el servidor sin reiniciar. El archivo se busca en:
 
 1. `config/voxclaudewatch.toml` relativo al directorio actual, sólo en builds de desarrollo (`cargo run`; ignorado por git). Los binarios release no lo miran.
 2. `config.toml` en el directorio de config del usuario (`~/.config/voxclaudewatch-tui/` en Linux).

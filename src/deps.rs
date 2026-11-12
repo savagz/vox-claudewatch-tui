@@ -51,6 +51,9 @@ pub struct Probe {
     /// Reproductor de sonido encontrado.
     pub player: Option<&'static str>,
     pub sound_on: bool,
+    /// Notificador de escritorio encontrado.
+    pub notifier: Option<&'static str>,
+    pub notify_on: bool,
 }
 
 impl Probe {
@@ -144,6 +147,20 @@ pub fn probe(lang: Lang, p: &Probe) -> DepReport {
     });
 
     checks.push(DepCheck {
+        label: t(Key::DepNotifyLabel),
+        detail: match (p.notifier, p.notify_on) {
+            (None, _) => t(Key::DepNotifyNone).to_string(),
+            (Some(_), false) => t(Key::DepNotifyOff).to_string(),
+            (Some(notifier), true) => t(Key::DepNotifyOkTemplate).replacen("{}", notifier, 1),
+        },
+        status: match (p.notifier, p.notify_on) {
+            (None, true) => Status::Warning,
+            (Some(_), true) => Status::Ok,
+            (_, false) => Status::Info,
+        },
+    });
+
+    checks.push(DepCheck {
         label: t(Key::DepDemoLabel),
         detail: if p.demo { t(Key::DepDemoOn) } else { t(Key::DepDemoOff) }.to_string(),
         status: Status::Info,
@@ -188,6 +205,8 @@ mod tests {
             demo: false,
             player: None,
             sound_on: true,
+            notifier: None,
+            notify_on: false,
         }
     }
 

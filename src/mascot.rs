@@ -667,20 +667,30 @@ fn frame(mascot: Mascot, state: State, f: u64) -> Canvas {
 pub fn render(mascot: Mascot, state: State, f: u64, background: Color) -> Vec<Line<'static>> {
     let gray = state == State::Offline;
     let c = frame(mascot, state, f);
-    (0..H)
+    halfblocks(W, H, |x, y| c.px[y][x].map(|ink| ink.color(mascot, gray)), background)
+}
+
+/// Pinta una rejilla de `w` x `h` píxeles con medios bloques: cada fila de
+/// terminal son dos píxeles. `background` rellena el medio píxel vacío; una
+/// celda sin ningún píxel queda en blanco y deja ver el panel.
+pub fn halfblocks(
+    w: usize,
+    h: usize,
+    get: impl Fn(usize, usize) -> Option<Color>,
+    background: Color,
+) -> Vec<Line<'static>> {
+    (0..h)
         .step_by(2)
         .map(|y| {
-            let spans: Vec<Span<'static>> = (0..W)
+            let spans: Vec<Span<'static>> = (0..w)
                 .map(|x| {
-                    let top = c.px[y][x];
-                    let bottom = if y + 1 < H { c.px[y + 1][x] } else { None };
+                    let top = get(x, y);
+                    let bottom = if y + 1 < h { get(x, y + 1) } else { None };
                     match (top, bottom) {
                         (None, None) => Span::raw(" "),
-                        (None, Some(b)) => Span::styled("▄", Style::default().fg(b.color(mascot, gray)).bg(background)),
-                        (Some(t), None) => Span::styled("▀", Style::default().fg(t.color(mascot, gray)).bg(background)),
-                        (Some(t), Some(b)) => {
-                            Span::styled("▀", Style::default().fg(t.color(mascot, gray)).bg(b.color(mascot, gray)))
-                        }
+                        (None, Some(b)) => Span::styled("▄", Style::default().fg(b).bg(background)),
+                        (Some(t), None) => Span::styled("▀", Style::default().fg(t).bg(background)),
+                        (Some(t), Some(b)) => Span::styled("▀", Style::default().fg(t).bg(b)),
                     }
                 })
                 .collect();

@@ -47,6 +47,7 @@ fn is_live(tab: Tab, app: &App) -> bool {
         Tab::Stats => app.hub.stats.day.turns > 0 || app.hub.stats.day.tools_total() > 0,
         Tab::Activity => !app.hub.timeline.is_empty(),
         Tab::SystemCheck => true,
+        Tab::Office => app.current().is_some_and(|s| !s.active_agents(now).is_empty()),
     }
 }
 

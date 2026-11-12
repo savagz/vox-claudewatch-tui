@@ -40,15 +40,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     render_mascot(frame, left[0], app, current);
     render_status(frame, left[1], app, current);
 
-    let agents_height = current.map_or(3, |s| {
-        let now = beacon::now();
-        let active = s.active_agents(now);
-        let n = active.len() * 2 + s.recent_agents(3).len();
-        (n as u16).clamp(1, 8) + 2
-    });
+    // Tareas, subagentes y actividad reciente se reparten el alto a partes iguales.
     let right = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Min(5), Constraint::Length(agents_height), Constraint::Length(9)])
+        .constraints([Constraint::Fill(1), Constraint::Fill(1), Constraint::Fill(1)])
         .split(cols[1]);
     render_tasks(frame, right[0], app, current);
     render_agents(frame, right[1], app, current);
@@ -161,7 +156,7 @@ fn render_status(frame: &mut Frame, area: Rect, app: &App, current: Option<&Sess
         Span::styled(format!("  {}", format::dur(now - s.state_since)), theme.label_style()),
     ])];
     if !s.detail.is_empty() && state.is_busy() {
-        lines.push(Line::from(Span::styled(format::short_path(&s.detail, width), theme.value_style())));
+        lines.push(Line::from(Span::styled(s.detail.clone(), theme.value_style())));
     }
     lines.push(Line::from(""));
     if let Some(started) = s.turn_started {

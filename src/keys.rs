@@ -5,7 +5,7 @@ pub enum AppAction {
     Quit,
     NextTab,
     PrevTab,
-    /// Salto directo a una sección del menú (`1`..`5`).
+    /// Salto directo a una sección del menú (`1`..`6`).
     JumpTab(usize),
     Up,
     Down,
@@ -25,10 +25,20 @@ pub enum AppAction {
     NextMascot,
     /// Activa o silencia los sonidos y lo guarda en la config.
     ToggleSound,
+    /// Activa o desactiva las notificaciones de escritorio.
+    ToggleNotify,
     /// Enter: en SESIONES fija el foco en la sesión seleccionada.
     Enter,
-    /// Esc: cierra/vuelve.
+    /// Esc: cierra/vuelve; en ACTIVIDAD limpia los filtros.
     Back,
+    /// `/`: buscar en ACTIVIDAD.
+    Search,
+    /// `f`: siguiente tipo de entrada en ACTIVIDAD.
+    CycleKind,
+    /// `p`: siguiente proyecto en ACTIVIDAD.
+    CycleProject,
+    /// Espacio: congela o reanuda el registro en ACTIVIDAD.
+    TogglePause,
 }
 
 pub fn action_for(key: KeyEvent) -> Option<AppAction> {
@@ -39,7 +49,7 @@ pub fn action_for(key: KeyEvent) -> Option<AppAction> {
         KeyCode::F(1) => Some(AppAction::OpenConfig),
         KeyCode::Tab => Some(AppAction::NextTab),
         KeyCode::BackTab => Some(AppAction::PrevTab),
-        KeyCode::Char(d @ '1'..='5') => {
+        KeyCode::Char(d @ '1'..='6') => {
             Some(AppAction::JumpTab(d.to_digit(10).unwrap() as usize - 1))
         }
         KeyCode::Up | KeyCode::Char('k') => Some(AppAction::Up),
@@ -53,8 +63,13 @@ pub fn action_for(key: KeyEvent) -> Option<AppAction> {
         KeyCode::Char('d') | KeyCode::Char('D') => Some(AppAction::Demo),
         KeyCode::Char('m') | KeyCode::Char('M') => Some(AppAction::NextMascot),
         KeyCode::Char('v') | KeyCode::Char('V') => Some(AppAction::ToggleSound),
+        KeyCode::Char('n') | KeyCode::Char('N') => Some(AppAction::ToggleNotify),
         KeyCode::Enter => Some(AppAction::Enter),
         KeyCode::Esc => Some(AppAction::Back),
+        KeyCode::Char('/') => Some(AppAction::Search),
+        KeyCode::Char('f') | KeyCode::Char('F') => Some(AppAction::CycleKind),
+        KeyCode::Char('p') | KeyCode::Char('P') => Some(AppAction::CycleProject),
+        KeyCode::Char(' ') => Some(AppAction::TogglePause),
         _ => None,
     }
 }

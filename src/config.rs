@@ -28,6 +28,10 @@ pub struct UiConfig {
     /// Sonidos en los cambios de estado importantes.
     #[serde(default = "default_sound")]
     pub sound: bool,
+    /// Notificaciones de escritorio en los avisos que te esperan. Apagadas por
+    /// defecto: interrumpen más que un sonido.
+    #[serde(default)]
+    pub notify: bool,
 }
 
 fn default_sound() -> bool {
@@ -50,7 +54,7 @@ impl Default for ServerConfig {
 
 impl Default for UiConfig {
     fn default() -> Self {
-        Self { tick_rate_ms: 180, language: Lang::default(), mascot: Mascot::default(), sound: true }
+        Self { tick_rate_ms: 180, language: Lang::default(), mascot: Mascot::default(), sound: true, notify: false }
     }
 }
 
@@ -181,21 +185,23 @@ pub enum ConfigField {
     Language,
     Mascot,
     Sound,
+    Notify,
 }
 
 impl ConfigField {
-    pub const ALL: [ConfigField; 6] = [
+    pub const ALL: [ConfigField; 7] = [
         ConfigField::Host,
         ConfigField::Port,
         ConfigField::Token,
         ConfigField::Language,
         ConfigField::Mascot,
         ConfigField::Sound,
+        ConfigField::Notify,
     ];
 
     /// Campos que se eligen con ← → en vez de escribirse.
     pub fn is_choice(self) -> bool {
-        matches!(self, ConfigField::Language | ConfigField::Mascot | ConfigField::Sound)
+        matches!(self, ConfigField::Language | ConfigField::Mascot | ConfigField::Sound | ConfigField::Notify)
     }
 
     pub fn label(&self, lang: Lang) -> &'static str {
@@ -206,6 +212,7 @@ impl ConfigField {
             ConfigField::Language => i18n::t(lang, Key::ConfigFieldLanguageLabel),
             ConfigField::Mascot => i18n::t(lang, Key::ConfigFieldMascotLabel),
             ConfigField::Sound => i18n::t(lang, Key::ConfigFieldSoundLabel),
+            ConfigField::Notify => i18n::t(lang, Key::ConfigFieldNotifyLabel),
         }
     }
 
@@ -217,6 +224,7 @@ impl ConfigField {
             ConfigField::Language => i18n::t(lang, Key::ConfigFieldLanguageHint),
             ConfigField::Mascot => i18n::t(lang, Key::ConfigFieldMascotHint),
             ConfigField::Sound => i18n::t(lang, Key::ConfigFieldSoundHint),
+            ConfigField::Notify => i18n::t(lang, Key::ConfigFieldNotifyHint),
         }
     }
 }
@@ -239,6 +247,7 @@ pub struct ConfigForm {
     pub language: Lang,
     pub mascot: Mascot,
     pub sound: bool,
+    pub notify: bool,
     pub error: Option<String>,
     tick_rate_ms: u64,
 }
@@ -253,6 +262,7 @@ impl ConfigForm {
             language: config.ui.language,
             mascot: config.ui.mascot,
             sound: config.ui.sound,
+            notify: config.ui.notify,
             error: None,
             tick_rate_ms: config.ui.tick_rate_ms,
         }
@@ -274,6 +284,9 @@ impl ConfigForm {
             ConfigField::Sound => {
                 i18n::t(self.language, if self.sound { Key::SoundOn } else { Key::SoundOff }).to_string()
             }
+            ConfigField::Notify => {
+                i18n::t(self.language, if self.notify { Key::NotifyOnShort } else { Key::NotifyOffShort }).to_string()
+            }
         }
     }
 
@@ -282,7 +295,7 @@ impl ConfigForm {
             ConfigField::Host => &mut self.host,
             ConfigField::Port => &mut self.port,
             ConfigField::Token => &mut self.token,
-            ConfigField::Language | ConfigField::Mascot | ConfigField::Sound => unreachable!("{field:?} no es un campo de texto"),
+            ConfigField::Language | ConfigField::Mascot | ConfigField::Sound | ConfigField::Notify => unreachable!("{field:?} no es un campo de texto"),
         }
     }
 
@@ -291,7 +304,7 @@ impl ConfigForm {
             ConfigField::Host => c.is_ascii_alphanumeric() || matches!(c, '.' | ':' | '-' | '[' | ']'),
             ConfigField::Port => c.is_ascii_digit(),
             ConfigField::Token => c.is_ascii_graphic(),
-            ConfigField::Language | ConfigField::Mascot | ConfigField::Sound => false,
+            ConfigField::Language | ConfigField::Mascot | ConfigField::Sound | ConfigField::Notify => false,
         }
     }
 
@@ -315,6 +328,10 @@ impl ConfigForm {
             }
             KeyCode::Left | KeyCode::Right if self.field() == ConfigField::Sound => {
                 self.sound = !self.sound;
+                ConfigOutcome::None
+            }
+            KeyCode::Left | KeyCode::Right if self.field() == ConfigField::Notify => {
+                self.notify = !self.notify;
                 ConfigOutcome::None
             }
             KeyCode::Left if self.field() == ConfigField::Mascot => {
@@ -366,6 +383,7 @@ impl ConfigForm {
                 language: self.language,
                 mascot: self.mascot,
                 sound: self.sound,
+                notify: self.notify,
             },
         };
         ConfigOutcome::Save(Box::new(config))
@@ -387,6 +405,14 @@ mod tests {
         let raw = toml::to_string_pretty(&config).unwrap();
         assert_eq!(toml::from_str::<Config>(&raw).unwrap(), config);
         assert_eq!(toml::from_str::<Config>("").unwrap(), config);
+    }
+
+    #[test]
+    fn una_config_vieja_sin_notify_lo_deja_apagado() {
+        let raw = "[ui]\ntick_rate_ms = 180\nsound = true\n";
+        let config = toml::from_str::<Config>(raw).unwrap();
+        assert!(config.ui.sound);
+        assert!(!config.ui.notify);
     }
 
     #[test]

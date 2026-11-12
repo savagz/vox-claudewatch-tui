@@ -6,41 +6,121 @@ use ratatui::{
 };
 
 use crate::app::App;
-use crate::beacon::{Note, TimelineEntry};
+use crate::beacon::{Note, NoteKind, TimelineEntry};
 use crate::i18n::{self, Key, Lang};
 use crate::theme::Theme;
 use crate::ui::format;
 use crate::ui::widgets::panel;
 
-/// Registro completo de actividad, lo más nuevo arriba. ↑↓ desplaza.
+/// Registro completo de actividad, lo más nuevo arriba. ↑↓ desplaza; `/`,
+/// `f`, `p` y Espacio filtran.
 pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let theme = &app.theme;
     let lang = app.lang;
+    let view = &app.activity;
 
-    let count = i18n::t(lang, Key::ActivityCountTemplate).replacen("{}", &app.hub.timeline.len().to_string(), 1);
+    let filtered = app.activity_entries();
+    let total = app.hub.timeline.len().to_string();
+    let count = if view.is_filtered() {
+        i18n::fill(i18n::t(lang, Key::ActivityFilteredTemplate), &[&filtered.len().to_string(), &total])
+    } else {
+        i18n::t(lang, Key::ActivityCountTemplate).replacen("{}", &total, 1)
+    };
     let block = panel::block(theme, super::Tab::Activity.title(lang), theme.tab_accent(3), false)
         .title_bottom(panel::readout(theme, &count, theme.fg_muted));
-    let inner = block.inner(area);
+    let mut inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let entries: Vec<&TimelineEntry> = app.hub.timeline.iter().rev().skip(app.activity_scroll).collect();
+    if view.editing || view.is_filtered() {
+        let bar = Rect { height: 1.min(inner.height), ..inner };
+        frame.render_widget(Paragraph::new(filter_line(app)), bar);
+        inner.y += bar.height;
+        inner.height -= bar.height;
+    }
+
+    if filtered.is_empty() && !app.hub.timeline.is_empty() {
+        let line = Line::from(Span::styled(i18n::t(lang, Key::ActivityNoMatch), theme.label_style()));
+        frame.render_widget(Paragraph::new(line), inner);
+        return;
+    }
+    let entries: Vec<&TimelineEntry> = filtered.into_iter().skip(app.activity_scroll).collect();
     frame.render_widget(Paragraph::new(lines(theme, lang, &entries, inner.width as usize)), inner);
 }
 
-/// Filas del registro. La columna de proyecto sólo aparece si hay más de uno.
+/// Línea de filtros activos: `/ texto_ · tipo: errores · proyecto: web · PAUSA`.
+fn filter_line(app: &App) -> Line<'static> {
+    let theme = &app.theme;
+    let lang = app.lang;
+    let view = &app.activity;
+    let sep = || Span::styled("  ·  ", theme.label_style());
+
+    let mut spans = Vec::new();
+    if view.editing || !view.query.is_empty() {
+        let cursor = if view.editing { "_" } else { "" };
+        spans.push(Span::styled("/ ", theme.style_for_color(theme.coral)));
+        spans.push(Span::styled(format!("{}{cursor}", view.query), theme.style_for_bold()));
+    }
+    let mut labelled = |label: Key, value: String| {
+        if !spans.is_empty() {
+            spans.push(sep());
+        }
+        spans.push(Span::styled(format!("{}: ", i18n::t(lang, label)), theme.label_style()));
+        spans.push(Span::styled(value, theme.style_for_color(theme.violet)));
+    };
+    if let Some(kind) = view.kind {
+        labelled(Key::ActivityKindLabel, kind_label(lang, kind).to_string());
+    }
+    if let Some(project) = &view.project {
+        labelled(Key::ActivityProjectLabel, project.clone());
+    }
+    if view.paused_at.is_some() {
+        if !spans.is_empty() {
+            spans.push(sep());
+        }
+        spans.push(Span::styled(
+            format!(" {} ", i18n::t(lang, Key::ActivityPaused)),
+            theme.plate_style(theme.accent_quaternary),
+        ));
+    }
+    Line::from(spans)
+}
+
+pub fn kind_label(lang: Lang, kind: NoteKind) -> &'static str {
+    i18n::t(
+        lang,
+        match kind {
+            NoteKind::Session => Key::KindSession,
+            NoteKind::Prompt => Key::KindPrompt,
+            NoteKind::Tool => Key::KindTool,
+            NoteKind::Error => Key::KindError,
+            NoteKind::Agent => Key::KindAgent,
+            NoteKind::Task => Key::KindTask,
+            NoteKind::Plan => Key::KindPlan,
+        },
+    )
+}
+
+/// Ancho máximo de la columna de proyecto.
+const PROJECT_MAX: usize = 16;
+
+/// Filas del registro, cada una con el proyecto al que pertenece. La columna
+/// se ajusta al nombre más largo de lo visible, hasta `PROJECT_MAX`.
 pub fn lines(theme: &Theme, lang: Lang, entries: &[&TimelineEntry], width: usize) -> Vec<Line<'static>> {
     if entries.is_empty() {
         return vec![Line::from(Span::styled(i18n::t(lang, Key::ActivityEmpty), theme.label_style()))];
     }
-    let multi = entries.iter().any(|e| e.project != entries[0].project);
-    let prefix = 9 + if multi { 15 } else { 0 } + 2;
+    let project_width = entries.iter().map(|e| e.project.chars().count()).max().unwrap_or(0).min(PROJECT_MAX);
+    let prefix = 9 + if project_width > 0 { project_width + 1 } else { 0 } + 2;
     entries
         .iter()
         .enumerate()
         .map(|(i, e)| {
             let mut spans = vec![Span::styled(format!("{} ", format::clock(e.ts)), theme.label_style())];
-            if multi {
-                spans.push(Span::styled(format!("{:<15}", format::fit(&e.project, 14)), theme.style_for_color(theme.violet)));
+            if project_width > 0 {
+                spans.push(Span::styled(
+                    format!("{:<w$} ", format::fit(&e.project, project_width), w = project_width),
+                    theme.style_for_color(theme.violet),
+                ));
             }
             spans.push(Span::styled(format!("{} ", e.note.icon()), theme.style_for_color(theme.coral)));
             let failed = matches!(e.note, Note::Tool { ok: false, .. });
