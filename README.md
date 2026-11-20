@@ -21,7 +21,7 @@ Es el port a Rust de `claude-watch` con el lenguaje visual de la familia VOXPBX:
 
 ## Requisitos
 
-- Linux x86_64 para el binario precompilado. En macOS, compilá desde el código fuente. Windows no está soportado: compila, pero sin `/dev/urandom` no se genera el token y el servidor queda sin autenticación.
+- Binario precompilado para Linux x86_64 y para macOS (universal: Apple Silicon e Intel). En otras plataformas, compilá desde el código fuente. Windows no está soportado: compila, pero sin `/dev/urandom` no se genera el token y el servidor queda sin autenticación.
 - Una terminal con truecolor para ver bien la mascota.
 - Opcional, para el sonido: PipeWire (`pw-play`), PulseAudio (`paplay`) o ALSA (`aplay`). En macOS se usa `afplay`.
 - En el equipo donde corre Claude Code, el mod `activity-beacon` de `claude-watch`.
@@ -37,6 +37,8 @@ curl -fsSL https://raw.githubusercontent.com/savagz/vox-claudewatch-tui/main/ins
 Opciones (se pasan con `sh -s --`): `--prefix <dir>`, `--version <tag>`, `--uninstall`, `-h`. La variable `VOXCLAUDEWATCH_VERSION` equivale a `--version`.
 
 El script comprueba el SHA-256 del paquete, pero el `.sha256` viene del mismo release: detecta descargas corruptas, no prueba la autoría. Si eso te importa, revisá el script antes de ejecutarlo y descargá el release a mano.
+
+En macOS el binario no está firmado ni notarizado. Instalado con el script no hay problema (`curl` no marca la descarga), pero si bajás el `.tar.gz` desde el navegador, Gatekeeper lo bloquea; quitale la cuarentena con `xattr -d com.apple.quarantine voxclaudewatch-tui`.
 
 ### Desde el código fuente
 

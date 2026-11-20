@@ -59,8 +59,58 @@ jobs:
             dist/*.tar.gz
             dist/*.sha256
 
+  # Binario universal (arm64 + x86_64) unido con lipo en un runner Apple Silicon.
+  build-macos:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --profile minimal \
+            --target aarch64-apple-darwin --target x86_64-apple-darwin
+          rustup default stable
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build
+        run: |
+          cargo build --release --locked --target aarch64-apple-darwin
+          cargo build --release --locked --target x86_64-apple-darwin
+
+      - name: Create universal binary
+        run: |
+          mkdir -p target/universal
+          lipo -create \
+            target/aarch64-apple-darwin/release/voxclaudewatch-tui \
+            target/x86_64-apple-darwin/release/voxclaudewatch-tui \
+            -output target/universal/voxclaudewatch-tui
+          lipo -info target/universal/voxclaudewatch-tui
+          lipo target/universal/voxclaudewatch-tui -verify_arch arm64 x86_64
+          target/universal/voxclaudewatch-tui --version
+
+      - name: Package
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          name="voxclaudewatch-tui-${tag}-universal-macos"
+          mkdir -p "dist/${name}"
+          cp target/universal/voxclaudewatch-tui README.md config/voxclaudewatch.example.toml "dist/${name}/"
+          # COPYFILE_DISABLE evita que bsdtar meta archivos ._ con atributos extendidos.
+          COPYFILE_DISABLE=1 tar -C dist -czf "dist/${name}.tar.gz" "${name}"
+          (cd dist && shasum -a 256 "${name}.tar.gz" > "${name}.tar.gz.sha256")
+          ls -l dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: voxclaudewatch-tui-macos
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+
   release:
-    needs: build
+    needs: [build, build-macos]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
@@ -68,7 +118,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: voxclaudewatch-tui
+          pattern: voxclaudewatch-tui*
+          merge-multiple: true
           path: dist
 
       - name: Publish release

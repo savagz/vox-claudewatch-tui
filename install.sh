@@ -80,8 +80,23 @@ if [ "$UNINSTALL" -eq 1 ]; then
     exit 0
 fi
 
-[ "$(uname -s)" = "Linux" ] || die "only Linux is supported (detected: $(uname -s))"
-[ "$(uname -m)" = "x86_64" ] || die "only x86_64 is supported (detected: $(uname -m))"
+os=$(uname -s)
+arch=$(uname -m)
+case "$os" in
+    Linux)
+        [ "$arch" = "x86_64" ] || die "only x86_64 is supported on Linux (detected: $arch)"
+        platform="x86_64-linux"
+        ;;
+    Darwin)
+        # El paquete de macOS es un binario universal (arm64 + x86_64).
+        case "$arch" in
+            arm64|x86_64) ;;
+            *) die "unsupported architecture on macOS: $arch" ;;
+        esac
+        platform="universal-macos"
+        ;;
+    *) die "only Linux and macOS are supported (detected: $os)" ;;
+esac
 
 if command -v curl >/dev/null 2>&1; then
     fetch() { curl -fsSL "$1" -o "$2"; }
@@ -92,7 +107,14 @@ elif command -v wget >/dev/null 2>&1; then
 else
     die "curl or wget is required"
 fi
-command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required"
+# macOS no trae sha256sum; shasum -a 256 -c acepta el mismo formato.
+if command -v sha256sum >/dev/null 2>&1; then
+    sha256_check() { sha256sum -c "$1"; }
+elif command -v shasum >/dev/null 2>&1; then
+    sha256_check() { shasum -a 256 -c "$1"; }
+else
+    die "sha256sum or shasum is required"
+fi
 command -v tar >/dev/null 2>&1 || die "tar is required"
 
 if [ -z "$VERSION" ]; then
@@ -108,7 +130,7 @@ case "$VERSION" in
     *) VERSION="v$VERSION" ;;
 esac
 
-name="$BIN-$VERSION-x86_64-linux"
+name="$BIN-$VERSION-$platform"
 base="https://github.com/$REPO/releases/download/$VERSION"
 
 tmp=$(mktemp -d)
@@ -123,7 +145,7 @@ fetch "$base/$name.tar.gz.sha256" "$tmp/$name.tar.gz.sha256" || die "could not d
 # corrupta o truncada, pero no prueba quién lo publicó. La confianza recae en
 # el repositorio de GitHub y en HTTPS.
 info "Verifying checksum..."
-(cd "$tmp" && sha256sum -c "$name.tar.gz.sha256" >/dev/null) || die "checksum mismatch, aborting"
+(cd "$tmp" && sha256_check "$name.tar.gz.sha256" >/dev/null) || die "checksum mismatch, aborting"
 
 tar -xzf "$tmp/$name.tar.gz" -C "$tmp"
 [ -f "$tmp/$name/$BIN" ] || die "the package does not contain $BIN"
